@@ -37,4 +37,6 @@ directory and appends it to its system prompt.
 - `src/tools/` — one file per tool, registry in `src/tools/index.ts`
 - `src/permissions.ts` — approval gate
 - `src/context.ts` — system prompt builder (loads `AGENTS.md`)
+- `src/server.ts` — app server for `hao-code app` (localhost UI over the same core)
+- `ui/` — the app UI (vanilla HTML/CSS/JS, served by `src/server.ts`)
 - `test/` — `node:test` tests, compiled to `dist/test/`

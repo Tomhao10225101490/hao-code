@@ -1,7 +1,7 @@
 # Personal Coding Agent — Blueprint
 
 Owner: Hao (GitHub: Tomhao10225101490) · Stack: TypeScript / Node.js · License: MIT
-Status: v0.3.0 built 2026-11-02 (see "Shipped" below). Name: `hao-code`.
+Status: v0.4.0 built 2026-11-02 (see "Shipped" below). Name: `hao-code`.
 
 ## What it is
 
@@ -32,6 +32,11 @@ src/
   sessions.ts     Session save/resume (~/.hao-code/sessions/<timestamp>.json)
   ui.ts           Presentation: trace formatting, ANSI colors, banner,
                   spinner, progressive diff reveal (zero dependencies)
+  server.ts       App server: localhost-only HTTP + SSE API over the agent
+                  core (config/sessions endpoints, turn streaming, approval
+                  bridge for the PermissionGate)
+ui/               Desktop-style app UI: vanilla HTML/CSS/JS, no build step,
+                  served by server.ts (sidebar, conversation, diff pane)
   config.ts       ~/.config/hao-code/config.json loading + precedence resolution
   context.ts      System prompt, AGENTS.md loading
 ```
@@ -95,8 +100,40 @@ spirit of Claude Code's readable activity feed.
 - [x] 51 tests passing (21 new: ui formatters, painter/colorizing, diff
   reveal equivalence, spinner, fx resolution, trace config).
 
+## Shipped in 0.4.0 (2026-11-02) — desktop-style app UI
+
+Goal (Hao): hao-code must also look and work like a coding-agent desktop
+app (Cursor / Claude Code desktop style), while the CLI stays for CLI
+users. Route: a local web UI served by hao-code itself over the same
+agent core — native packaging (Electron/Tauri) is the follow-on step.
+
+- [x] **App server** (`src/server.ts`) — `node:http` on 127.0.0.1 only,
+  default port 7770 (`--port` flag / `HAO_CODE_PORT`). Serves the static
+  UI from `ui/`; API: `GET /api/config` (API key masked), `GET
+  /api/sessions`, `POST /api/turn` as SSE (every agent event, plus
+  `permission_request`, ending with `done`/`error`; one turn at a time,
+  concurrent turns get 409), `POST /api/approve` (`y`/`n`/`a`).
+- [x] **Permission bridging** — the gate's ask callback emits a
+  `permission_request` event (id, tool, headline summary, `diffPreviewFor`
+  diff for write/edit) and awaits `/api/approve`; unanswered approvals
+  deny on timeout (120 s), and a browser disconnect fails closed.
+- [x] **The UI** (`ui/index.html` / `styles.css` / `app.js`, vanilla, no
+  build step, no external assets) — dark desktop layout: sidebar (name,
+  version, session list, provider/model badge, trace toggle), streaming
+  conversation with tool-call cards and trace step headers, approval
+  cards with Approve/Deny/Always buttons, end-of-turn panel, and a
+  right-hand pane collecting each turn's diffs with green/red lines.
+- [x] **CLI wiring** — `hao-code app [--port N] [--open]`; `--open`
+  launches the default browser via the OS opener. REPL and one-shot
+  modes untouched.
+- [x] 56 tests passing (5 new in `test/server.test.ts`: static UI +
+  config/session APIs with key masking, an approved SSE turn that
+  writes the file — including a 409 check mid-turn — a denied turn that
+  writes nothing, and unknown-id approvals).
+
 ## Future candidates
 
+- Native desktop packaging of the app UI (Electron/Tauri)
 - History summarization for very long tasks
 - MCP client support
 - Subagent delegation

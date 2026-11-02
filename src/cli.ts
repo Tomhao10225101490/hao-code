@@ -9,10 +9,13 @@
 //   hao-code --yes ...       auto-approve all tool actions (careful!)
 //   hao-code --trace         show the step-by-step trace feed (see ui.ts)
 //   hao-code --no-fx         plain output: no colors/banner/spinner
+//   hao-code app [--port N] [--open]
+//                            serve the desktop-style app UI on 127.0.0.1
 //
 // Configuration precedence: CLI flags > environment variables (or .env) >
 // ~/.config/hao-code/config.json > built-in defaults (local Ollama).
 
+import { spawn } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import readline from "node:readline";
@@ -21,6 +24,7 @@ import { Agent, type AgentEvent } from "./agent.js";
 import { loadConfigFile, resolveSettings, type ResolvedSettings } from "./config.js";
 import { diffPreviewFor, PermissionGate } from "./permissions.js";
 import { createProvider, type AnyProvider } from "./providers/index.js";
+import { startAppServer } from "./server.js";
 import {
   Spinner,
   banner,
@@ -51,9 +55,9 @@ function version(): string {
       "package.json",
     );
     const pkg = JSON.parse(readFileSync(pkgPath, "utf8")) as { version?: string };
-    return pkg.version ?? "0.3.0";
+    return pkg.version ?? "0.4.0";
   } catch {
-    return "0.3.0";
+    return "0.4.0";
   }
 }
 
@@ -86,6 +90,9 @@ function printHelp(settings?: ResolvedSettings): void {
       "Usage:",
       "  hao-code                  interactive session in the current directory",
       '  hao-code "your request"   run a single instruction, then exit',
+      "  hao-code app [options]    desktop-style app UI in your browser (local only)",
+      "                            --port N  port to bind (default 7770, or $HAO_CODE_PORT)",
+      "                            --open    open the UI in your default browser",
       "",
       "Flags:",
       "  --yes, -y          auto-approve all file writes and commands (dangerous)",
@@ -206,13 +213,115 @@ function parseArgs(argv: string[]): CliArgs {
   return out;
 }
 
+/** Open a URL in the OS default browser, fire-and-forget. */
+function openBrowser(url: string): void {
+  const platform = process.platform;
+  const command =
+    platform === "darwin" ? "open" : platform === "win32" ? "cmd" : "xdg-open";
+  const args = platform === "win32" ? ["/c", "start", "", url] : [url];
+  try {
+    const child = spawn(command, args, { detached: true, stdio: "ignore" });
+    child.on("error", () => {});
+    child.unref();
+  } catch {
+    // Best effort only — the URL is printed either way.
+  }
+}
+
+/**
+ * `hao-code app [--port N] [--open]`: serve the desktop-style web UI.
+ * The server binds 127.0.0.1 only and drives the same agent core as the
+ * CLI; permission prompts appear as approval cards in the browser.
+ */
+async function runAppCommand(argv: string[], cwd: string): Promise<void> {
+  let port: number | undefined;
+  let open = false;
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i];
+    if (arg === "--open") {
+      open = true;
+    } else if (arg === "--port") {
+      const value = argv[++i];
+      if (value === undefined) throw new Error("--port needs a port number");
+      port = Number(value);
+    } else if (arg.startsWith("--port=")) {
+      port = Number(arg.slice("--port=".length));
+    } else if (arg === "--help" || arg === "-h") {
+      console.log(
+        [
+          "Usage: hao-code app [--port N] [--open]",
+          "",
+          "Serve the desktop-style app UI on http://127.0.0.1:<port> (localhost",
+          "only). The UI drives the same agent as the CLI; writes and commands",
+          "ask for approval as cards in the browser unless auto-approve is on.",
+          "",
+          "  --port N   port to bind (default: $HAO_CODE_PORT or 7770)",
+          "  --open     open the UI in your default browser",
+        ].join("\n"),
+      );
+      return;
+    } else {
+      console.error(`Warning: ignoring unknown app flag ${arg}`);
+    }
+  }
+  if (
+    port !== undefined &&
+    (!Number.isInteger(port) || port < 0 || port > 65535)
+  ) {
+    throw new Error(`invalid port: ${String(port)}`);
+  }
+
+  const loaded = loadConfigFile();
+  if (loaded.error) {
+    console.error(`Warning: ignoring config file — ${loaded.error}`);
+  }
+  const settings = resolveSettings(process.env, loaded.config);
+
+  const running = await startAppServer({
+    settings,
+    cwd,
+    port,
+    version: version(),
+  });
+  console.log(`hao-code app → ${running.url}`);
+  console.log(
+    `provider: ${settings.provider} · model: ${settings.model} @ ${settings.baseUrl}`,
+  );
+  console.log(`working directory: ${cwd}`);
+  console.log(
+    settings.autoApprove
+      ? "permissions: AUTO-APPROVED by your settings. Be careful."
+      : "permissions: writes and commands will ask as cards in the browser.",
+  );
+  console.log("Local only (127.0.0.1). Press Ctrl+C to stop.");
+  if (open) openBrowser(running.url);
+
+  await new Promise<void>((resolve) => {
+    process.once("SIGINT", () => {
+      console.log("\nStopping…");
+      void running.close().then(resolve, resolve);
+    });
+  });
+}
+
 async function main(): Promise<void> {
   const cwd = process.cwd();
   loadDotEnv(cwd);
 
+  const rawArgv = process.argv.slice(2);
+  if (rawArgv[0] === "app") {
+    try {
+      await runAppCommand(rawArgv.slice(1), cwd);
+    } catch (err) {
+      console.error(`Error: ${err instanceof Error ? err.message : String(err)}`);
+      process.exit(1);
+    }
+    return;
+  }
+
   let args: CliArgs;
   try {
-    args = parseArgs(process.argv.slice(2));
+    args = parseArgs(rawArgv);
   } catch (err) {
     console.error(`Error: ${err instanceof Error ? err.message : String(err)}`);
     process.exit(1);

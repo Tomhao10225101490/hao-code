@@ -7,11 +7,12 @@ works with **no API key and no cloud account**. When you want a hosted model,
 point it at any OpenAI-compatible endpoint — or flip one setting and use
 Anthropic's native Messages API instead.
 
-> **Status: v0.3.** The agent loop, two providers, git tools, session
+> **Status: v0.4.** The agent loop, two providers, git tools, session
 > save/resume, config file, permission prompts with real unified diffs —
-> plus trace mode and a live "hacker-style" terminal presentation — all
-> work and are covered by tests. Still a young project: expect rough
-> edges, and see the roadmap below.
+> plus trace mode, a live "hacker-style" terminal presentation, and a
+> desktop-style app UI served locally (`hao-code app`) — all work and
+> are covered by tests. Still a young project: expect rough edges, and
+> see the roadmap below.
 
 ## What it does
 
@@ -51,6 +52,13 @@ You can also pass a single instruction and exit:
 
 ```bash
 hao-code "explain what this project does"
+```
+
+…or open the desktop-style app UI in your browser (see
+[App UI](#app-ui-desktop-style) below):
+
+```bash
+hao-code app --open
 ```
 
 ### Using a hosted model instead
@@ -108,6 +116,10 @@ instructions noticeably better if your hardware allows.
   `--no-fx` / `--fx` override.
 - **REPL commands** — `/help`, `/tools`, `/model`, `/trace`, `/sessions`,
   `/clear`, `/exit`.
+- **App UI** — `hao-code app` serves a desktop-style web UI on
+  127.0.0.1: sessions sidebar, streaming conversation, tool-call cards,
+  approval cards, and a live diff pane — over the same agent core as
+  the CLI.
 
 ## Configuration
 
@@ -184,6 +196,42 @@ Effects turn off automatically when output is piped (logs and tests stay
 plain). `--no-fx` forces them off; `--fx` — or `FORCE_FX=1` — forces
 them on.
 
+## App UI (desktop-style)
+
+Prefer a window over a terminal? hao-code ships a desktop-style app UI
+in the spirit of Cursor and the Claude Code desktop app — served by
+hao-code itself, no extra install:
+
+```bash
+hao-code app --open          # serves http://127.0.0.1:7770 and opens your browser
+hao-code app --port 8080     # custom port (or set $HAO_CODE_PORT)
+```
+
+**The server binds 127.0.0.1 only** — it is a control surface for the
+agent on your own machine, never a network service. It drives the exact
+same agent core as the CLI (same providers, tools, permission gate, and
+session files), so nothing about the agent's behavior changes.
+
+Layout, like a desktop agent app:
+
+- **Left sidebar** — app name and version, the list of saved sessions,
+  a provider/model badge, and a trace toggle.
+- **Center** — the conversation: your messages, the assistant's text
+  streaming in live, tool-call cards (arguments and result previews,
+  collapsible), trace step headers when trace is on, and the end-of-turn
+  panel (steps · tool calls · files changed · tokens).
+- **Right pane** — every file change of the current turn with its
+  unified diff, lines colored green/red as edits land.
+
+Permission prompts become **approval cards** in the conversation with
+Approve / Deny / Always-for-this-session buttons and the same diff
+preview the CLI shows; an answer left unanswered denies on timeout, and
+`--yes`-style auto-approve settings are honored exactly as in the CLI.
+
+**The CLI remains fully supported** — the REPL, one-shot mode, trace
+mode, and terminal effects are unchanged; the app is an additional face
+on the same agent, not a replacement.
+
 ## Tools
 
 | Tool | What it does | Needs approval |
@@ -219,6 +267,8 @@ src/
   sessions.ts     Session save/load/list (~/.hao-code/sessions/)
   ui.ts           Presentation: trace formatting, ANSI colors, banner,
                   spinner, progressive diff reveal (hand-rolled, no deps)
+  server.ts       App server: localhost HTTP + SSE API over the agent core
+ui/               The app UI itself (vanilla HTML/CSS/JS, no build step)
   diff.ts         LCS-based unified diff for approval previews
   permissions.ts  The approval gate (diffs, summaries, session allowlist)
   context.ts      System prompt builder (loads AGENTS.md)
@@ -265,6 +315,8 @@ Zero runtime dependencies: just `fetch`, `node:readline`, `node:fs`, and
 - [x] Unified diffs in permission prompts
 - [x] Trace mode — visible step-by-step reasoning feed
 - [x] Terminal effects — banner, spinner, live diff reveal, turn panel
+- [x] Desktop-style app UI — local web app over the same agent core
+- [ ] Native desktop packaging (Electron/Tauri) for the app UI
 - [ ] History summarization for very long tasks
 - [ ] MCP client support
 - [ ] Subagent delegation

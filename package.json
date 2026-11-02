@@ -1,6 +1,6 @@
 {
   "name": "hao-code",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "A personal, open-source coding agent for your terminal. Local-first (Ollama), provider-agnostic, safe by default.",
   "type": "module",
   "bin": {

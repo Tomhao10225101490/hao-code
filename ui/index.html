@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>hao-code</title>
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<div id="app">
+  <aside id="sidebar">
+    <div class="brand">
+      <div class="brand-mark">h</div>
+      <div class="brand-text">
+        <div class="brand-name">hao-code</div>
+        <div class="brand-version" id="versionLabel">…</div>
+      </div>
+    </div>
+
+    <div class="side-label">Sessions</div>
+    <ul id="sessionList" class="session-list">
+      <li class="session-empty">No saved sessions yet</li>
+    </ul>
+    <p class="side-note">Sessions are saved by every hao-code run.
+      Resume one from the terminal with <code>--continue</code>.</p>
+
+    <div class="side-spacer"></div>
+
+    <div class="side-card">
+      <div class="badge-row">
+        <span class="badge" id="providerBadge">connecting…</span>
+      </div>
+      <div class="meta-line" id="modelLine"></div>
+      <div class="meta-line dim" id="baseUrlLine"></div>
+      <div class="meta-line dim" id="cwdLine" title=""></div>
+      <label class="toggle-row" for="traceToggle">
+        <input type="checkbox" id="traceToggle">
+        <span>Trace mode</span>
+      </label>
+      <p class="side-note">Trace shows the step-by-step feed: every tool
+        call with its arguments and a preview of each result.</p>
+    </div>
+  </aside>
+
+  <main id="main">
+    <div id="messages">
+      <div id="emptyState">
+        <div class="empty-mark">h</div>
+        <h1>What should we build?</h1>
+        <p>Ask hao-code to read, edit, or create files in this project.
+          It will always ask before changing anything.</p>
+        <div class="empty-hints">
+          <span>“explain what this project does”</span>
+          <span>“add a .gitignore and run the tests”</span>
+          <span>“fix the failing test in src/”</span>
+        </div>
+      </div>
+    </div>
+
+    <div id="composerBar">
+      <div id="statusLine" class="status-line"></div>
+      <div class="composer">
+        <textarea id="composer" rows="3" spellcheck="false"
+          placeholder="Ask hao-code…  (Enter to send · Shift+Enter for a new line)"></textarea>
+        <button id="sendBtn" type="button">Send</button>
+      </div>
+    </div>
+  </main>
+
+  <aside id="changesPane">
+    <div class="side-label">Changes this turn</div>
+    <div id="changesList">
+      <p class="side-note">Files the agent edits appear here with their
+        diffs, as the turn runs.</p>
+    </div>
+  </aside>
+</div>
+<script src="/app.js"></script>
+</body>
+</html>
